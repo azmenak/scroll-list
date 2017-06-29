@@ -8,6 +8,26 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
   <body>
+    <style>
+      body {
+        background: #FFF;
+        font-family: sans-serif;
+      }
+      body .row {
+        height: 28px;
+        line-height: 28px;
+        padding: 0 10px;
+      }
+      body .row:first-child {
+        border-top: 1px solid #DDD;
+      }
+      body .row:not(:last-child) {
+        border-bottom: 1px solid #DDD;
+      }
+      body .row:nth-child(odd) {
+        background: #EFEFEF;
+      }
+    </style>
     <div id="entry">
       <%// App hooks into div#app %>
       <div class="loader-container">

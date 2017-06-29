@@ -1,8 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { List } from './main';
+import { List, store } from './main';
+import { Provider } from 'react-redux';
 
 ReactDOM.render(
-  React.createElement(List),
+  <Provider store={store}>
+    <List />
+  </Provider>,
   document.getElementById('entry')
 );

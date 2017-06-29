@@ -1,7 +1,8 @@
-const React = require('react');
-const Immutable = require('immutable');
-const _ = require('lodash');
-const Faker = require('faker');
+import React from 'react';
+import _ from 'lodash';
+import Faker from 'faker';
+import { createStore } from 'redux';
+import { connect } from 'react-redux';
 
 const fakeData = [];
 _.times(1000, () => {
@@ -14,55 +15,84 @@ const app = {
     return new Promise(resolve => {
       setTimeout(function() {
         resolve(indices.map(i => fakeData[i % 1000]));
-      }, _.random(30, 200));
+      }, _.random(100, 500));
     });
   },
 };
 
-const store = {
+const defaultState = {
   offset: 0,
   size: 500,
   list: [],
 };
 
-export class Row extends React.Component {
-  componentDidMount() {
-    const { i, list } = this.props;
-    if (list[i]) return;
-    this.props.update([ this.props.i ]);
-  }
+const RECEIVE_NAMES = 'RECEIVE_NAMES';
+const SET_OFFSET = 'SET_OFFSET';
 
+const listApp = (state, action) => {
+  switch (action.type) {
+  case RECEIVE_NAMES:
+    const newList = state.list.slice();
+    action.indicies.forEach((index, i) => {
+      newList[index] = action.result[i];
+    });
+    return Object.assign({}, state, {
+      list: newList,
+    });
+  case SET_OFFSET:
+    return Object.assign({}, state, {
+      offset: action.offset,
+    });
+  default:
+    return state;
+  }
+};
+
+export const store = createStore(listApp, defaultState);
+
+const queueUpdate = _.throttle(() => {
+  const { offset, size } = store.getState();
+  const count = Math.ceil(window.innerHeight / app.rowHeight);
+  const a = Math.floor(offset / app.rowHeight);
+  update(_.range(Math.min(count, size - a)).map(i => i + a));
+}, 200);
+
+const update = indicies => {
+  const uncachedIndicies = indicies.filter(i => !store.getState().list.includes(i));
+  app.fetch(uncachedIndicies).then(result => {
+    store.dispatch({
+      type: RECEIVE_NAMES,
+      indicies,
+      result,
+    });
+  });
+}
+
+export class Row extends React.Component {
   render() {
-    const { i, list } = this.props;
-    return <div className="row">{i}: {list[i]}</div>;
+    const { i, name } = this.props;
+    return <div className="row">{i}: {name || 'Loading...'}</div>;
   }
 }
 
-export class List extends React.Component {
-  constructor() {
-    super();
-    this.state = store;
-    this.update = this.update.bind(this);
-  }
 
+class DisconnectedList extends React.Component {
   componentDidMount() {
     window.addEventListener('scroll', () => {
       const offset = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
-      this.setState({ offset });
+      if (offset !== this.props.offset) {
+        this.props.dispatch({
+          type: SET_OFFSET,
+          offset,
+        });
+        queueUpdate();
+      }
     });
-  }
-
-  update(indicies) {
-    app.fetch(indicies).then((res) => {
-      indicies.forEach((index, i) => {
-        store.list[index] = res[i];
-        this.setState({ list: store.list });
-      });
-    });
+    queueUpdate();
   }
 
   render() {
-    const { offset, size, list } = this.state;
+    const { offset, list, size } = this.props;
 
     const count = Math.ceil(window.innerHeight / app.rowHeight);
     let a = Math.floor(offset / app.rowHeight);
@@ -70,7 +100,7 @@ export class List extends React.Component {
 
     const rows = _.map(_.range(Math.min(count, size - a)), (i) => {
       i+= a;
-      return <Row key={i} i={i} list={list} update={this.update} />;
+      return <Row key={i} i={i} name={list[i]} />;
     });
 
     return (
@@ -82,3 +112,5 @@ export class List extends React.Component {
     );
   }
 }
+
+export const List = connect(state => state)(DisconnectedList);
